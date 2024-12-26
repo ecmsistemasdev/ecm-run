@@ -2,14 +2,12 @@ import os
 from flask import Flask, render_template
 from apimercadopago import gerar_link_pagamento
 
-port = int(os.environ.get("PORT", 5000))
-
 app = Flask(__name__)
 
 @app.route("/")
 def homepage():
     link_iniciar_pagamento = gerar_link_pagamento()
-    return render_template("homepage.html", link_pagamento=link_iniciar_pagamento)
+    return render_template("home.html", link_pagamento=link_iniciar_pagamento)
 
 @app.route("/compracerta")
 def compra_certa():
@@ -19,5 +17,6 @@ def compra_certa():
 def compra_errada():
     return render_template("compraerrada.html")
 
+port = int(os.environ.get("PORT", 5000))
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port)
