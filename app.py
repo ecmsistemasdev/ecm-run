@@ -1,44 +1,75 @@
-import os
-from flask import Flask, render_template, request, jsonify
-from apimercadopago import gerar_link_pagamento
+from flask import Flask, jsonify, request, render_template
+import mercadopago
+from config import Config
 
 app = Flask(__name__)
 
-@app.route("/")
-def homepage():
-    link_iniciar_pagamento = gerar_link_pagamento()
-    return render_template("home.html", link_pagamento=link_iniciar_pagamento)
+app.config.from_object(Config)
 
-@app.route("/compracerta")
-def compra_certa():
-    return render_template("compracerta.html")
+#sdk = mercadopago.SDK(app.config['MP_ACCESS_TOKEN'])
 
-@app.route("/compraerrada")
-def compra_errada():
-    return render_template("compraerrada.html")
+sdk = mercadopago.SDK("APP_USR-4419840842819511-121317-8c522deb54aff8ea290465f557bcdf0b-96531112")
+mp_publckey = "APP_USR-0b9acce0-2c45-48b5-9837-9279769b5e31"
 
-@app.route("/webhook", methods=["POST"])
+
+@app.route('/')
+def index():
+    return render_template('index.html', 
+                         public_key=mp_publckey)
+
+@app.route('/create_preference', methods=['POST'])
+def create_preference():
+    try:
+        preference_data = {
+            "items": [
+                {
+                    "title": "Produto de Exemplo",
+                    "quantity": 1,
+                    "currency_id": "BRL",
+                    "unit_price": 1.0
+                }
+            ],
+            "back_urls": {
+                "success": "https://ecmrun.up.railway.app//compracerta",
+                "failure": "https://ecmrun.up.railway.app//compraerrada",
+                "pending": "https://ecmrun.up.railway.app//compraerrada"
+            },
+            "notification_url": "https://ecmrun.up.railway.app//webhook",
+        }
+        
+        preference_response = sdk.preference().create(preference_data)
+        preference = preference_response["response"]
+        
+        return jsonify({
+            "id": preference["id"],
+            "init_point": preference["init_point"]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    # Recebe a notificação do Mercado Pago
-    data = request.json
+    try:
+        data = request.json
+        
+        if data['type'] == 'payment':
+            payment_id = data['data']['id']
+            payment_info = sdk.payment().get(payment_id)
+            
+            # Aqui você pode salvar as informações do pagamento em um banco de dados
+            # E emitir um evento para o frontend via WebSocket, SSE ou fazer polling
+            
+            return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-    # Verifica se a notificação é válida
-    if data and "data" in data:
-        payment_id = data["data"]["id"]
-        payment_status = data["data"]["status"]
+@app.route('/payment_status/<payment_id>')
+def payment_status(payment_id):
+    try:
+        payment_info = sdk.payment().get(payment_id)
+        return jsonify(payment_info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-        # Aqui você pode processar o status do pagamento
-        # Por exemplo, atualizar o banco de dados ou enviar um e-mail
-        print(f"Pagamento ID: {payment_id}, Status: {payment_status}")
-
-        # Retorna uma resposta 200 OK para o Mercado Pago
-        return jsonify({"status": "received"}), 200
-    else:
-        return jsonify({"error": "Invalid data"}), 400
-
-
-
-
-port = int(os.environ.get("PORT", 5000))
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run(debug=True)
