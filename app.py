@@ -30,9 +30,9 @@ def create_preference():
                 }
             ],
             "back_urls": {
-                "success": "https://ecmrun.up.railway.app//compracerta",
-                "failure": "https://ecmrun.up.railway.app//compraerrada",
-                "pending": "https://ecmrun.up.railway.app//compraerrada"
+                "success": "https://ecmrun.up.railway.app//sucesso",
+                "failure": "https://ecmrun.up.railway.app//falha",
+                "pending": "https://ecmrun.up.railway.app//pendente"
             },
             "notification_url": "https://ecmrun.up.railway.app//webhook",
         }
@@ -73,3 +73,9 @@ def payment_status(payment_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+
+# port = int(os.environ.get("PORT", 5000))
+# if __name__ == "__main__":
+#     app.run(host="0.0.0.0", port=port)
