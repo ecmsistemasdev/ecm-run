@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento com Mercado Pago</title>
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+</head>
+<body>
+    <div>
+        <h1>Produto de Exemplo</h1>
+        <p>Preço: R$ 100,00</p>
+        <button id="checkout-btn">Pagar</button>
+    </div>
+    <div id="payment-status"></div>
+
+    <script>
+        const mp = new MercadoPago('{{ public_key }}');
+        
+        document.getElementById('checkout-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/create_preference', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                // Redireciona para a página de pagamento do Mercado Pago
+                window.location.href = data.init_point;
+            } catch (error) {
+                console.error('Erro ao criar preferência:', error);
+            }
+        });
+
+        // Função para verificar o status do pagamento
+        async function checkPaymentStatus(paymentId) {
+            try {
+                const response = await fetch(`/payment_status/${paymentId}`);
+                const data = await response.json();
+                
+                const statusElement = document.getElementById('payment-status');
+                statusElement.innerHTML = `Status do pagamento: ${data.status}`;
+            } catch (error) {
+                console.error('Erro ao verificar status:', error);
+            }
+        }
+
+        // Verifica se há um payment_id na URL (redirecionamento após pagamento)
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentId = urlParams.get('payment_id');
+        if (paymentId) {
+            checkPaymentStatus(paymentId);
+        }
+    </script>
+</body>
+</html>
