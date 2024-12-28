@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falha no Pagamento</title>
+</head>
+<body>
+    <h1>Houve um problema com seu pagamento</h1>
+    <p>Por favor, tente novamente.</p>
+    <script>
+        setTimeout(() => {
+            if (window.opener) {
+                window.opener.location.reload();
+                window.close();
+            } else {
+                window.location.href = '/';
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
