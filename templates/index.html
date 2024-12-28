@@ -24,32 +24,22 @@
                 });
                 const data = await response.json();
                 
-                // Redireciona para a página de pagamento do Mercado Pago
-                window.location.href = data.init_point;
+                // Abre o checkout em uma nova janela
+                const checkoutWindow = window.open(data.init_point, 'MercadoPago', 'width=800,height=600');
+                
+                // Verifica periodicamente se a janela foi fechada
+                const checkWindow = setInterval(() => {
+                    if (checkoutWindow.closed) {
+                        clearInterval(checkWindow);
+                        // Atualiza a página principal ou verifica o status
+                        window.location.reload();
+                    }
+                }, 1000);
+                
             } catch (error) {
                 console.error('Erro ao criar preferência:', error);
             }
         });
-
-        // Função para verificar o status do pagamento
-        async function checkPaymentStatus(paymentId) {
-            try {
-                const response = await fetch(`/payment_status/${paymentId}`);
-                const data = await response.json();
-                
-                const statusElement = document.getElementById('payment-status');
-                statusElement.innerHTML = `Status do pagamento: ${data.status}`;
-            } catch (error) {
-                console.error('Erro ao verificar status:', error);
-            }
-        }
-
-        // Verifica se há um payment_id na URL (redirecionamento após pagamento)
-        const urlParams = new URLSearchParams(window.location.search);
-        const paymentId = urlParams.get('payment_id');
-        if (paymentId) {
-            checkPaymentStatus(paymentId);
-        }
     </script>
 </body>
 </html>
