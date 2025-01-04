@@ -3,42 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pagamento com Mercado Pago</title>
-    <script src="https://sdk.mercadopago.com/js/v2"></script>
+    <title>Pagamento PIX</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #qrcode-container {
+            margin: 20px 0;
+        }
+        .success-message {
+            color: green;
+            font-weight: bold;
+            margin: 20px 0;
+            display: none;
+        }
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
 </head>
 <body>
-    <div>
-        <h1>Produto de Exemplo</h1>
-        <p>Preço: R$ 100,00</p>
-        <button id="checkout-btn">Pagar</button>
+    <h1>Pagamento via PIX</h1>
+    
+    <button id="generate-payment">Gerar Pagamento</button>
+    
+    <div class="loading">Gerando QR Code...</div>
+    
+    <div id="qrcode-container">
+        <img id="qrcode" src="" alt="QR Code PIX" style="display: none;">
     </div>
-    <div id="payment-status"></div>
+    
+    <div class="success-message">
+        Pagamento realizado com sucesso!
+    </div>
 
     <script>
-        const mp = new MercadoPago('{{ public_key }}');
-        
-        document.getElementById('checkout-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/create_preference', {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                
-                // Abre o checkout em uma nova janela
-                const checkoutWindow = window.open(data.init_point, 'MercadoPago', 'width=800,height=600');
-                
-                // Verifica periodicamente se a janela foi fechada
-                const checkWindow = setInterval(() => {
-                    if (checkoutWindow.closed) {
-                        clearInterval(checkWindow);
-                        // Atualiza a página principal ou verifica o status
-                        window.location.reload();
+        let currentTxid = null;
+        let checkingInterval = null;
+
+        function checkPaymentStatus() {
+            if (!currentTxid) return;
+            
+            $.get(`/check_payment/${currentTxid}`)
+                .done(function(response) {
+                    if (response.paid) {
+                        clearInterval(checkingInterval);
+                        $('#qrcode').hide();
+                        $('.success-message').show();
                     }
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Erro ao criar preferência:', error);
+                })
+                .fail(function(error) {
+                    console.error('Erro ao verificar pagamento:', error);
+                });
+        }
+
+        $('#generate-payment').click(function() {
+            $('.loading').show();
+            $('#qrcode').hide();
+            $('.success-message').hide();
+            
+            // Limpa o intervalo anterior se existir
+            if (checkingInterval) {
+                clearInterval(checkingInterval);
             }
+
+            $.post('/generate_charge')
+                .done(function(response) {
+                    $('.loading').hide();
+                    $('#qrcode').attr('src', `data:image/png;base64,${response.qr_code}`).show();
+                    currentTxid = response.txid;
+                    
+                    // Inicia a verificação do status do pagamento
+                    checkingInterval = setInterval(checkPaymentStatus, 5000);
+                })
+                .fail(function(error) {
+                    $('.loading').hide();
+                    alert('Erro ao gerar o pagamento. Por favor, tente novamente.');
+                    console.error('Erro:', error);
+                });
         });
     </script>
 </body>
