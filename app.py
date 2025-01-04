@@ -1,81 +1,86 @@
-from flask import Flask, jsonify, request, render_template
-import mercadopago
-from config import Config
+from flask import Flask, render_template, jsonify
+from gerencianet import Gerencianet
+import qrcode
+import base64
+from io import BytesIO
+import json
+import os
 
 app = Flask(__name__)
 
-app.config.from_object(Config)
+# Configurações da Gerencianet
+CREDENTIALS = {
+    'client_id': 'Client_Id_a1a8fcd9338ce308b9fe06b73ef6f40fc2627e97',
+    'client_secret': 'Client_Secret_63e0df2e45c3957af75520ad68a0ce2cf45b93ac',
+    'sandbox': False  # Mude para False em produção
+}
 
-#sdk = mercadopago.SDK(app.config['MP_ACCESS_TOKEN'])
+# Inicializa o objeto Gerencianet
+gn = Gerencianet(CREDENTIALS)
 
-sdk = mercadopago.SDK("APP_USR-4419840842819511-121317-8c522deb54aff8ea290465f557bcdf0b-96531112")
-mp_publckey = "APP_USR-0b9acce0-2c45-48b5-9837-9279769b5e31"
-
+def generate_qr_code(pix_code):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(pix_code)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    return img_str
 
 @app.route('/')
 def index():
-    return render_template('index.html', 
-                         public_key=mp_publckey)
+    return render_template('index.html')
 
-@app.route('/create_preference', methods=['POST'])
-def create_preference():
+@app.route('/generate_charge', methods=['POST'])
+def generate_charge():
     try:
-        preference_data = {
-            "items": [
-                {
-                    "title": "Produto de Exemplo",
-                    "quantity": 1,
-                    "currency_id": "BRL",
-                    "unit_price": 1.0
-                }
-            ],
-            "back_urls": {
-                "success": "https://ecmrun.up.railway.app//sucesso",
-                "failure": "https://ecmrun.up.railway.app//falha",
-                "pending": "https://ecmrun.up.railway.app//pendente"
+        # Dados da cobrança
+        body = {
+            'calendario': {
+                'expiracao': 3600
             },
-            "notification_url": "https://ecmrun.up.railway.app//webhook",
+            'devedor': {
+                'cpf': '12345678909',
+                'nome': 'Nome do Cliente'
+            },
+            'valor': {
+                'original': '100.00'
+            },
+            'chave': 'sua_chave_pix',  # Sua chave PIX cadastrada na Gerencianet
+            'solicitacaoPagador': 'Pagamento do Produto X'
         }
+
+        # Gera a cobrança
+        response = gn.pix_create_immediate_charge(body=body)
         
-        preference_response = sdk.preference().create(preference_data)
-        preference = preference_response["response"]
+        # Gera QR Code
+        qr_response = gn.pix_generate_qrcode(response['loc']['id'])
+        
+        # Converte QR Code para imagem base64
+        qr_code_image = generate_qr_code(qr_response['qrcode'])
         
         return jsonify({
-            "id": preference["id"],
-            "init_point": preference["init_point"]
+            'qr_code': qr_code_image,
+            'txid': response['txid']
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({'error': str(e)}), 500
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
+@app.route('/check_payment/<txid>')
+def check_payment(txid):
     try:
-        data = request.json
+        # Consulta o status do pagamento
+        response = gn.pix_detail_charge(txid=txid)
+        status = response['status']
         
-        if data['type'] == 'payment':
-            payment_id = data['data']['id']
-            payment_info = sdk.payment().get(payment_id)
-            
-            # Aqui você pode salvar as informações do pagamento em um banco de dados
-            # E emitir um evento para o frontend via WebSocket, SSE ou fazer polling
-            
-            return jsonify({"status": "success"}), 200
+        return jsonify({
+            'status': status,
+            'paid': status == 'CONCLUIDA'
+        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-@app.route('/payment_status/<payment_id>')
-def payment_status(payment_id):
-    try:
-        payment_info = sdk.payment().get(payment_id)
-        return jsonify(payment_info)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-# port = int(os.environ.get("PORT", 5000))
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=port)
