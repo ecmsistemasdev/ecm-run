@@ -42,13 +42,13 @@ def generate_charge():
                 'expiracao': 3600
             },
             'devedor': {
-                'cpf': '12345678909',
-                'nome': 'Nome do Cliente'
+                'cpf': '66553075204',
+                'nome': 'Elienai Monteiro'
             },
             'valor': {
-                'original': '100.00'
+                'original': '1.00'
             },
-            'chave': 'sua_chave_pix',  # Sua chave PIX cadastrada na Gerencianet
+            'chave': '14e02a0f-3468-434c-895d-a7d9c60d874b',  # Sua chave PIX cadastrada na Gerencianet
             'solicitacaoPagador': 'Pagamento do Produto X'
         }
 
